@@ -16,7 +16,6 @@ Globals:
         CLOUDFRONT_DOMAIN: !GetAtt CloudFrontDistribution.DomainName
         CLOUDFRONT_KEY_PAIR_ID: !Ref CloudFrontKeyPairId
         CLOUDFRONT_PRIVATE_KEY_SSM_PATH: !Sub "/obolearn/${Stage}/cloudfront/private-key"
-        COGNITO_USER_POOL_ID: !Ref UserPool
         CORS_ORIGIN: !Sub "https://${FrontendDomain}"
 
 Parameters:
@@ -139,6 +138,7 @@ Resources:
   OboLearnTable:
     Type: AWS::DynamoDB::Table
     DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       TableName: !Sub "obolearn-${Stage}"
       BillingMode: PAY_PER_REQUEST
@@ -257,7 +257,7 @@ Resources:
       BuildProperties:
         Minify: false
         Target: "es2022"
-        Sourcemap: true
+        Sourcemap: false
         EntryPoints:
           - src/functions/auth/postConfirmation.ts
     Properties:
@@ -275,7 +275,7 @@ Resources:
       BuildProperties:
         Minify: false
         Target: "es2022"
-        Sourcemap: true
+        Sourcemap: false
         EntryPoints:
           - src/functions/courses/handler.ts
     Properties:
@@ -284,6 +284,9 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref OboLearnTable
+      Environment:
+        Variables:
+          COGNITO_USER_POOL_ID: !Ref UserPool
       Events:
         Api:
           Type: HttpApi
@@ -299,7 +302,7 @@ Resources:
       BuildProperties:
         Minify: false
         Target: "es2022"
-        Sourcemap: true
+        Sourcemap: false
         EntryPoints:
           - src/functions/courses/handler.ts
     Properties:
@@ -308,6 +311,9 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref OboLearnTable
+      Environment:
+        Variables:
+          COGNITO_USER_POOL_ID: !Ref UserPool
       Events:
         Api:
           Type: HttpApi
@@ -325,7 +331,7 @@ Resources:
       BuildProperties:
         Minify: false
         Target: "es2022"
-        Sourcemap: true
+        Sourcemap: false
         EntryPoints:
           - src/functions/courses/handler.ts
     Properties:
@@ -334,6 +340,9 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref OboLearnTable
+      Environment:
+        Variables:
+          COGNITO_USER_POOL_ID: !Ref UserPool
       Events:
         Api:
           Type: HttpApi
@@ -351,7 +360,7 @@ Resources:
       BuildProperties:
         Minify: false
         Target: "es2022"
-        Sourcemap: true
+        Sourcemap: false
         EntryPoints:
           - src/functions/courses/handler.ts
     Properties:
@@ -360,6 +369,9 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref OboLearnTable
+      Environment:
+        Variables:
+          COGNITO_USER_POOL_ID: !Ref UserPool
       Events:
         Api:
           Type: HttpApi
@@ -376,7 +388,7 @@ Resources:
       BuildProperties:
         Minify: false
         Target: "es2022"
-        Sourcemap: true
+        Sourcemap: false
         EntryPoints:
           - src/functions/lessons/handler.ts
     Properties:
@@ -387,6 +399,9 @@ Resources:
             TableName: !Ref OboLearnTable
         - S3WritePolicy:
             BucketName: !Ref VideoBucket
+      Environment:
+        Variables:
+          COGNITO_USER_POOL_ID: !Ref UserPool
       Events:
         Api:
           Type: HttpApi
@@ -402,7 +417,7 @@ Resources:
       BuildProperties:
         Minify: false
         Target: "es2022"
-        Sourcemap: true
+        Sourcemap: false
         EntryPoints:
           - src/functions/lessons/handler.ts
     Properties:
@@ -411,6 +426,9 @@ Resources:
       Policies:
         - DynamoDBReadPolicy:
             TableName: !Ref OboLearnTable
+      Environment:
+        Variables:
+          COGNITO_USER_POOL_ID: !Ref UserPool
       Events:
         Api:
           Type: HttpApi
@@ -428,7 +446,7 @@ Resources:
       BuildProperties:
         Minify: false
         Target: "es2022"
-        Sourcemap: true
+        Sourcemap: false
         EntryPoints:
           - src/functions/lessons/handler.ts
     Properties:
@@ -437,6 +455,9 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref OboLearnTable
+      Environment:
+        Variables:
+          COGNITO_USER_POOL_ID: !Ref UserPool
       Events:
         Api:
           Type: HttpApi
@@ -452,7 +473,7 @@ Resources:
       BuildProperties:
         Minify: false
         Target: "es2022"
-        Sourcemap: true
+        Sourcemap: false
         EntryPoints:
           - src/functions/lessons/handler.ts
     Properties:
@@ -463,6 +484,9 @@ Resources:
             TableName: !Ref OboLearnTable
         - S3WritePolicy:
             BucketName: !Ref VideoBucket
+      Environment:
+        Variables:
+          COGNITO_USER_POOL_ID: !Ref UserPool
       Events:
         Api:
           Type: HttpApi
@@ -479,7 +503,7 @@ Resources:
       BuildProperties:
         Minify: false
         Target: "es2022"
-        Sourcemap: true
+        Sourcemap: false
         EntryPoints:
           - src/functions/enrollments/handler.ts
     Properties:
@@ -488,6 +512,9 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref OboLearnTable
+      Environment:
+        Variables:
+          COGNITO_USER_POOL_ID: !Ref UserPool
       Events:
         Api:
           Type: HttpApi
@@ -503,7 +530,7 @@ Resources:
       BuildProperties:
         Minify: false
         Target: "es2022"
-        Sourcemap: true
+        Sourcemap: false
         EntryPoints:
           - src/functions/enrollments/handler.ts
     Properties:
@@ -512,6 +539,9 @@ Resources:
       Policies:
         - DynamoDBReadPolicy:
             TableName: !Ref OboLearnTable
+      Environment:
+        Variables:
+          COGNITO_USER_POOL_ID: !Ref UserPool
       Events:
         Api:
           Type: HttpApi
@@ -527,7 +557,7 @@ Resources:
       BuildProperties:
         Minify: false
         Target: "es2022"
-        Sourcemap: true
+        Sourcemap: false
         EntryPoints:
           - src/functions/enrollments/handler.ts
     Properties:
@@ -536,6 +566,9 @@ Resources:
       Policies:
         - DynamoDBReadPolicy:
             TableName: !Ref OboLearnTable
+      Environment:
+        Variables:
+          COGNITO_USER_POOL_ID: !Ref UserPool
       Events:
         Api:
           Type: HttpApi
@@ -552,7 +585,7 @@ Resources:
       BuildProperties:
         Minify: false
         Target: "es2022"
-        Sourcemap: true
+        Sourcemap: false
         EntryPoints:
           - src/functions/progress/handler.ts
     Properties:
@@ -561,6 +594,9 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref OboLearnTable
+      Environment:
+        Variables:
+          COGNITO_USER_POOL_ID: !Ref UserPool
       Events:
         Api:
           Type: HttpApi
@@ -576,7 +612,7 @@ Resources:
       BuildProperties:
         Minify: false
         Target: "es2022"
-        Sourcemap: true
+        Sourcemap: false
         EntryPoints:
           - src/functions/progress/handler.ts
     Properties:
@@ -585,6 +621,9 @@ Resources:
       Policies:
         - DynamoDBReadPolicy:
             TableName: !Ref OboLearnTable
+      Environment:
+        Variables:
+          COGNITO_USER_POOL_ID: !Ref UserPool
       Events:
         Api:
           Type: HttpApi
@@ -601,7 +640,7 @@ Resources:
       BuildProperties:
         Minify: false
         Target: "es2022"
-        Sourcemap: true
+        Sourcemap: false
         EntryPoints:
           - src/functions/video/handler.ts
     Properties:
@@ -612,6 +651,9 @@ Resources:
             TableName: !Ref OboLearnTable
         - SSMParameterReadPolicy:
             ParameterName: !Sub "obolearn/${Stage}/cloudfront/private-key"
+      Environment:
+        Variables:
+          COGNITO_USER_POOL_ID: !Ref UserPool
       Events:
         Api:
           Type: HttpApi
