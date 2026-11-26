@@ -8,7 +8,7 @@
 import {
   DynamoDBClient,
   ConditionalCheckFailedException,
-} from '@aws-sdk/client-dynamodb';
+} from "@aws-sdk/client-dynamodb";
 import {
   DynamoDBDocumentClient,
   PutCommand,
@@ -23,19 +23,15 @@ import {
   DeleteCommandInput,
   TransactWriteCommand,
   TransactWriteCommandInput,
-} from '@aws-sdk/lib-dynamodb';
+  ScanCommand,
+} from "@aws-sdk/lib-dynamodb";
 import {
-  Course,
-  Lesson,
-  Enrollment,
-  Progress,
-  User,
   CourseItem,
   LessonItem,
   EnrollmentItem,
   ProgressItem,
   UserItem,
-} from '../types/index.js';
+} from "@types-local/index";
 
 const TABLE_NAME = process.env.TABLE_NAME!;
 
@@ -60,15 +56,15 @@ export function getDocClient(): DynamoDBDocumentClient {
 export const Keys = {
   course: (courseId: string) => ({
     PK: `COURSE#${courseId}`,
-    SK: '#METADATA',
+    SK: "#METADATA",
   }),
   lesson: (courseId: string, order: number, lessonId: string) => ({
     PK: `COURSE#${courseId}`,
-    SK: `LESSON#${String(order).padStart(5, '0')}#${lessonId}`,
+    SK: `LESSON#${String(order).padStart(5, "0")}#${lessonId}`,
   }),
   lessonPrefix: (courseId: string) => ({
     PK: `COURSE#${courseId}`,
-    SKPrefix: 'LESSON#',
+    SKPrefix: "LESSON#",
   }),
   enrollment: (userId: string, courseId: string) => ({
     PK: `USER#${userId}`,
@@ -80,7 +76,7 @@ export const Keys = {
   }),
   enrollmentPrefix: (userId: string) => ({
     PK: `USER#${userId}`,
-    SKPrefix: 'ENROLL#',
+    SKPrefix: "ENROLL#",
   }),
   progress: (userId: string, courseId: string, lessonId: string) => ({
     PK: `USER#${userId}`,
@@ -92,7 +88,7 @@ export const Keys = {
   }),
   user: (userId: string) => ({
     PK: `USER#${userId}`,
-    SK: '#METADATA',
+    SK: "#METADATA",
   }),
 };
 
@@ -115,7 +111,7 @@ export async function putItemIfNotExists(
     const input: PutCommandInput = {
       TableName: TABLE_NAME,
       Item: item,
-      ConditionExpression: 'attribute_not_exists(PK)',
+      ConditionExpression: "attribute_not_exists(PK)",
     };
     await getDocClient().send(new PutCommand(input));
     return true;
@@ -127,9 +123,10 @@ export async function putItemIfNotExists(
   }
 }
 
-export async function getItem<T>(
-  keys: { PK: string; SK: string },
-): Promise<T | undefined> {
+export async function getItem<T>(keys: {
+  PK: string;
+  SK: string;
+}): Promise<T | undefined> {
   const input: GetCommandInput = {
     TableName: TABLE_NAME,
     Key: keys,
@@ -139,7 +136,7 @@ export async function getItem<T>(
 }
 
 export async function queryItems<T>(
-  input: Omit<QueryCommandInput, 'TableName'>,
+  input: Omit<QueryCommandInput, "TableName">,
 ): Promise<T[]> {
   const result = await getDocClient().send(
     new QueryCommand({ TableName: TABLE_NAME, ...input }),
@@ -148,16 +145,17 @@ export async function queryItems<T>(
 }
 
 export async function updateItem(
-  input: Omit<UpdateCommandInput, 'TableName'>,
+  input: Omit<UpdateCommandInput, "TableName">,
 ): Promise<void> {
   await getDocClient().send(
     new UpdateCommand({ TableName: TABLE_NAME, ...input }),
   );
 }
 
-export async function deleteItem(
-  keys: { PK: string; SK: string },
-): Promise<void> {
+export async function deleteItem(keys: {
+  PK: string;
+  SK: string;
+}): Promise<void> {
   const input: DeleteCommandInput = {
     TableName: TABLE_NAME,
     Key: keys,
@@ -166,7 +164,7 @@ export async function deleteItem(
 }
 
 export async function transactWrite(
-  input: Omit<TransactWriteCommandInput, 'TableName'>,
+  input: Omit<TransactWriteCommandInput, "TableName">,
 ): Promise<void> {
   await getDocClient().send(new TransactWriteCommand(input));
 }
@@ -192,23 +190,21 @@ export async function getCourse(
 export async function listCourses(status?: string): Promise<CourseItem[]> {
   // We use a full table scan on the GSI-less path for simplicity in Phase 1.
   // In production, add a GSI on status#createdAt for efficient filtering.
-  const { DynamoDBClient: DDBClient } = await import('@aws-sdk/client-dynamodb');
-  const { ScanCommand } = await import('@aws-sdk/lib-dynamodb');
   const filter = status
     ? {
-        FilterExpression: '#st = :status AND SK = :sk',
-        ExpressionAttributeNames: { '#st': 'status' },
-        ExpressionAttributeValues: { ':status': status, ':sk': '#METADATA' },
+        FilterExpression: "#st = :status AND SK = :sk",
+        ExpressionAttributeNames: { "#st": "status" },
+        ExpressionAttributeValues: { ":status": status, ":sk": "#METADATA" },
       }
     : {
-        FilterExpression: 'SK = :sk',
-        ExpressionAttributeValues: { ':sk': '#METADATA' },
+        FilterExpression: "SK = :sk",
+        ExpressionAttributeValues: { ":sk": "#METADATA" },
       };
   const result = await getDocClient().send(
     new ScanCommand({ TableName: TABLE_NAME, ...filter }),
   );
   return (result.Items ?? []).filter(
-    (item) => item.entityType === 'COURSE',
+    (item) => item.entityType === "COURSE",
   ) as CourseItem[];
 }
 
@@ -222,8 +218,8 @@ export async function putLesson(lesson: LessonItem): Promise<void> {
 export async function listLessons(courseId: string): Promise<LessonItem[]> {
   const { PK, SKPrefix } = Keys.lessonPrefix(courseId);
   return queryItems<LessonItem>({
-    KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
-    ExpressionAttributeValues: { ':pk': PK, ':prefix': SKPrefix },
+    KeyConditionExpression: "PK = :pk AND begins_with(SK, :prefix)",
+    ExpressionAttributeValues: { ":pk": PK, ":prefix": SKPrefix },
     ScanIndexForward: true,
   });
 }
@@ -259,8 +255,8 @@ export async function listEnrollmentsForUser(
 ): Promise<EnrollmentItem[]> {
   const { PK, SKPrefix } = Keys.enrollmentPrefix(userId);
   return queryItems<EnrollmentItem>({
-    KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
-    ExpressionAttributeValues: { ':pk': PK, ':prefix': SKPrefix },
+    KeyConditionExpression: "PK = :pk AND begins_with(SK, :prefix)",
+    ExpressionAttributeValues: { ":pk": PK, ":prefix": SKPrefix },
   });
 }
 
@@ -290,8 +286,8 @@ export async function listProgressForCourse(
 ): Promise<ProgressItem[]> {
   const { PK, SKPrefix } = Keys.progressPrefix(userId, courseId);
   return queryItems<ProgressItem>({
-    KeyConditionExpression: 'PK = :pk AND begins_with(SK, :prefix)',
-    ExpressionAttributeValues: { ':pk': PK, ':prefix': SKPrefix },
+    KeyConditionExpression: "PK = :pk AND begins_with(SK, :prefix)",
+    ExpressionAttributeValues: { ":pk": PK, ":prefix": SKPrefix },
   });
 }
 

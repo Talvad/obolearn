@@ -5,16 +5,16 @@
  * Creates a USER#<userId> record in DynamoDB.
  */
 
-import { PostConfirmationTriggerHandler } from 'aws-lambda';
-import { putUser } from '../../lib/dynamo.js';
+import { putUser } from "@lib/dynamo";
+import { PostConfirmationTriggerHandler } from "aws-lambda";
 
 export const handler: PostConfirmationTriggerHandler = async (event) => {
   const { sub, email, name } = event.request.userAttributes;
 
   await putUser({
-    entityType: 'USER',
+    entityType: "USER",
     userId: sub,
-    email: email ?? '',
+    email: email ?? "",
     name: name,
     createdAt: new Date().toISOString(),
   });
