@@ -1,0 +1,661 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: OboLearn B2C LMS — Phase 1 Backend
+
+Globals:
+  Function:
+    Runtime: nodejs22.x
+    MemorySize: 512
+    Timeout: 30
+    Architectures:
+      - arm64
+    Environment:
+      Variables:
+        TABLE_NAME: !Ref OboLearnTable
+        BUCKET_NAME: !Ref VideoBucket
+        CLOUDFRONT_DOMAIN: !GetAtt CloudFrontDistribution.DomainName
+        CLOUDFRONT_KEY_PAIR_ID: !Ref CloudFrontKeyPairId
+        CLOUDFRONT_PRIVATE_KEY_SSM_PATH: !Sub "/obolearn/${Stage}/cloudfront/private-key"
+        COGNITO_USER_POOL_ID: !Ref UserPool
+        CORS_ORIGIN: !Sub "https://${FrontendDomain}"
+
+Parameters:
+  Stage:
+    Type: String
+    Default: prod
+    AllowedValues:
+      - dev
+      - staging
+      - prod
+  FrontendDomain:
+    Type: String
+    Default: "localhost:3000"
+    Description: Frontend domain for CORS (without https://)
+  CloudFrontKeyPairId:
+    Type: String
+    Description: CloudFront key pair ID for signing video URLs
+
+# ---------------------------------------------------------------------------
+# API Gateway
+# ---------------------------------------------------------------------------
+Resources:
+  OboLearnApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: !Ref Stage
+      CorsConfiguration:
+        AllowOrigins:
+          - !Sub "https://${FrontendDomain}"
+          - "http://localhost:3000"
+        AllowHeaders:
+          - Authorization
+          - Content-Type
+        AllowMethods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+          - OPTIONS
+        AllowCredentials: true
+      Auth:
+        Authorizers:
+          CognitoAuthorizer:
+            IdentitySource: "$request.header.Authorization"
+            JwtConfiguration:
+              issuer: !Sub "https://cognito-idp.${AWS::Region}.amazonaws.com/${UserPool}"
+              audience:
+                - !Ref UserPoolClient
+        DefaultAuthorizer: CognitoAuthorizer
+
+  # ---------------------------------------------------------------------------
+  # Cognito — Task 2
+  # ---------------------------------------------------------------------------
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub "obolearn-${Stage}"
+      UsernameAttributes:
+        - email
+      AutoVerifiedAttributes:
+        - email
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireUppercase: true
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: false
+      Schema:
+        - Name: email
+          Required: true
+          Mutable: true
+        - Name: name
+          Required: false
+          Mutable: true
+      LambdaConfig:
+        PostConfirmation: !GetAtt PostConfirmationFunction.Arn
+      AccountRecoverySetting:
+        RecoveryMechanisms:
+          - Name: verified_email
+            Priority: 1
+
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: !Sub "obolearn-web-${Stage}"
+      UserPoolId: !Ref UserPool
+      GenerateSecret: false
+      ExplicitAuthFlows:
+        - ALLOW_USER_PASSWORD_AUTH
+        - ALLOW_USER_SRP_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+      AccessTokenValidity: 1
+      IdTokenValidity: 1
+      RefreshTokenValidity: 30
+      TokenValidityUnits:
+        AccessToken: days
+        IdToken: days
+        RefreshToken: days
+      PreventUserExistenceErrors: ENABLED
+
+  AdminGroup:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties:
+      GroupName: admin
+      UserPoolId: !Ref UserPool
+      Description: LMS administrators and instructors
+
+  PostConfirmationFunctionPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt PostConfirmationFunction.Arn
+      Action: lambda:InvokeFunction
+      Principal: cognito-idp.amazonaws.com
+      SourceArn: !GetAtt UserPool.Arn
+
+  # ---------------------------------------------------------------------------
+  # DynamoDB — Task 3
+  # ---------------------------------------------------------------------------
+  OboLearnTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    Properties:
+      TableName: !Sub "obolearn-${Stage}"
+      BillingMode: PAY_PER_REQUEST
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+        - AttributeName: GSI1PK
+          AttributeType: S
+        - AttributeName: GSI1SK
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: GSI1
+          KeySchema:
+            - AttributeName: GSI1PK
+              KeyType: HASH
+            - AttributeName: GSI1SK
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+
+  # ---------------------------------------------------------------------------
+  # S3 + CloudFront — Task 4
+  # ---------------------------------------------------------------------------
+  VideoBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "obolearn-videos-${Stage}-${AWS::AccountId}"
+      VersioningConfiguration:
+        Status: Enabled
+      LifecycleConfiguration:
+        Rules:
+          - Id: AbortIncompleteMultipartUploads
+            Status: Enabled
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 1
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  VideoBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref VideoBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AllowCloudFrontOAC
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource: !Sub "${VideoBucket.Arn}/*"
+            Condition:
+              StringEquals:
+                "AWS:SourceArn": !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${CloudFrontDistribution}"
+
+  CloudFrontOAC:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub "obolearn-oac-${Stage}"
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  CloudFrontDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Comment: !Sub "OboLearn video CDN (${Stage})"
+        HttpVersion: http2and3
+        DefaultCacheBehavior:
+          TargetOriginId: S3VideoOrigin
+          ViewerProtocolPolicy: redirect-to-https
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6 # CachingOptimized
+          OriginRequestPolicyId: 88a5eaf4-2fd4-4709-b370-b4c650ea3fcf # CORS-S3Origin
+          TrustedKeyGroups:
+            - !Ref CloudFrontKeyGroup
+        Origins:
+          - Id: S3VideoOrigin
+            DomainName: !GetAtt VideoBucket.RegionalDomainName
+            S3OriginConfig: {}
+            OriginAccessControlId: !GetAtt CloudFrontOAC.Id
+        PriceClass: PriceClass_100
+
+  CloudFrontKeyGroup:
+    Type: AWS::CloudFront::KeyGroup
+    Properties:
+      KeyGroupConfig:
+        Name: !Sub "obolearn-keygroup-${Stage}"
+        Items:
+          - !Ref CloudFrontKeyPairId
+        Comment: Key group for signed video URLs
+
+  # ---------------------------------------------------------------------------
+  # Lambda functions
+  # ---------------------------------------------------------------------------
+
+  # Auth — post-confirmation trigger
+  PostConfirmationFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: false
+        Target: "es2022"
+        Sourcemap: true
+        EntryPoints:
+          - src/functions/auth/postConfirmation.ts
+    Properties:
+      FunctionName: !Sub "obolearn-post-confirmation-${Stage}"
+      Handler: postConfirmation.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref OboLearnTable
+
+  # Courses
+  CreateCourseFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: false
+        Target: "es2022"
+        Sourcemap: true
+        EntryPoints:
+          - src/functions/courses/handler.ts
+    Properties:
+      FunctionName: !Sub "obolearn-create-course-${Stage}"
+      Handler: handler.createCourse
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref OboLearnTable
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref OboLearnApi
+            Path: /courses
+            Method: POST
+
+  ListCoursesFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: false
+        Target: "es2022"
+        Sourcemap: true
+        EntryPoints:
+          - src/functions/courses/handler.ts
+    Properties:
+      FunctionName: !Sub "obolearn-list-courses-${Stage}"
+      Handler: handler.listCoursesHandler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref OboLearnTable
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref OboLearnApi
+            Path: /courses
+            Method: GET
+            Auth:
+              Authorizer: NONE
+
+  GetCourseFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: false
+        Target: "es2022"
+        Sourcemap: true
+        EntryPoints:
+          - src/functions/courses/handler.ts
+    Properties:
+      FunctionName: !Sub "obolearn-get-course-${Stage}"
+      Handler: handler.getCourseHandler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref OboLearnTable
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref OboLearnApi
+            Path: /courses/{courseId}
+            Method: GET
+            Auth:
+              Authorizer: NONE
+
+  UpdateCourseFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: false
+        Target: "es2022"
+        Sourcemap: true
+        EntryPoints:
+          - src/functions/courses/handler.ts
+    Properties:
+      FunctionName: !Sub "obolearn-update-course-${Stage}"
+      Handler: handler.updateCourse
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref OboLearnTable
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref OboLearnApi
+            Path: /courses/{courseId}
+            Method: PUT
+
+  # Lessons
+  CreateLessonFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: false
+        Target: "es2022"
+        Sourcemap: true
+        EntryPoints:
+          - src/functions/lessons/handler.ts
+    Properties:
+      FunctionName: !Sub "obolearn-create-lesson-${Stage}"
+      Handler: handler.createLesson
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref OboLearnTable
+        - S3WritePolicy:
+            BucketName: !Ref VideoBucket
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref OboLearnApi
+            Path: /courses/{courseId}/lessons
+            Method: POST
+
+  ListLessonsFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: false
+        Target: "es2022"
+        Sourcemap: true
+        EntryPoints:
+          - src/functions/lessons/handler.ts
+    Properties:
+      FunctionName: !Sub "obolearn-list-lessons-${Stage}"
+      Handler: handler.listLessonsHandler
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref OboLearnTable
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref OboLearnApi
+            Path: /courses/{courseId}/lessons
+            Method: GET
+            Auth:
+              Authorizer: NONE
+
+  UpdateLessonFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: false
+        Target: "es2022"
+        Sourcemap: true
+        EntryPoints:
+          - src/functions/lessons/handler.ts
+    Properties:
+      FunctionName: !Sub "obolearn-update-lesson-${Stage}"
+      Handler: handler.updateLesson
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref OboLearnTable
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref OboLearnApi
+            Path: /courses/{courseId}/lessons/{lessonId}
+            Method: PUT
+
+  GetUploadUrlFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: false
+        Target: "es2022"
+        Sourcemap: true
+        EntryPoints:
+          - src/functions/lessons/handler.ts
+    Properties:
+      FunctionName: !Sub "obolearn-get-upload-url-${Stage}"
+      Handler: handler.getUploadUrl
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref OboLearnTable
+        - S3WritePolicy:
+            BucketName: !Ref VideoBucket
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref OboLearnApi
+            Path: /courses/{courseId}/lessons/{lessonId}/upload-url
+            Method: POST
+
+  # Enrollments
+  EnrollFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: false
+        Target: "es2022"
+        Sourcemap: true
+        EntryPoints:
+          - src/functions/enrollments/handler.ts
+    Properties:
+      FunctionName: !Sub "obolearn-enroll-${Stage}"
+      Handler: handler.enroll
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref OboLearnTable
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref OboLearnApi
+            Path: /enrollments
+            Method: POST
+
+  ListEnrollmentsFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: false
+        Target: "es2022"
+        Sourcemap: true
+        EntryPoints:
+          - src/functions/enrollments/handler.ts
+    Properties:
+      FunctionName: !Sub "obolearn-list-enrollments-${Stage}"
+      Handler: handler.listEnrollments
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref OboLearnTable
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref OboLearnApi
+            Path: /enrollments
+            Method: GET
+
+  GetEnrollmentFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: false
+        Target: "es2022"
+        Sourcemap: true
+        EntryPoints:
+          - src/functions/enrollments/handler.ts
+    Properties:
+      FunctionName: !Sub "obolearn-get-enrollment-${Stage}"
+      Handler: handler.getEnrollmentHandler
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref OboLearnTable
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref OboLearnApi
+            Path: /enrollments/{courseId}
+            Method: GET
+
+  # Progress
+  UpdateProgressFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: false
+        Target: "es2022"
+        Sourcemap: true
+        EntryPoints:
+          - src/functions/progress/handler.ts
+    Properties:
+      FunctionName: !Sub "obolearn-update-progress-${Stage}"
+      Handler: handler.updateProgress
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref OboLearnTable
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref OboLearnApi
+            Path: /progress/{courseId}/{lessonId}
+            Method: PUT
+
+  GetProgressFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: false
+        Target: "es2022"
+        Sourcemap: true
+        EntryPoints:
+          - src/functions/progress/handler.ts
+    Properties:
+      FunctionName: !Sub "obolearn-get-progress-${Stage}"
+      Handler: handler.getCourseProgress
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref OboLearnTable
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref OboLearnApi
+            Path: /progress/{courseId}
+            Method: GET
+
+  # Video signed URL
+  GetVideoSignedUrlFunction:
+    Type: AWS::Serverless::Function
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: false
+        Target: "es2022"
+        Sourcemap: true
+        EntryPoints:
+          - src/functions/video/handler.ts
+    Properties:
+      FunctionName: !Sub "obolearn-get-video-signed-url-${Stage}"
+      Handler: handler.getVideoSignedUrl
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref OboLearnTable
+        - SSMParameterReadPolicy:
+            ParameterName: !Sub "obolearn/${Stage}/cloudfront/private-key"
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref OboLearnApi
+            Path: /videos/{lessonId}/signed-url
+            Method: GET
+
+# ---------------------------------------------------------------------------
+# Outputs
+# ---------------------------------------------------------------------------
+Outputs:
+  ApiUrl:
+    Description: API Gateway URL
+    Value: !Sub "https://${OboLearnApi}.execute-api.${AWS::Region}.amazonaws.com/${Stage}"
+    Export:
+      Name: !Sub "OboLearn-ApiUrl-${Stage}"
+
+  UserPoolId:
+    Description: Cognito User Pool ID
+    Value: !Ref UserPool
+    Export:
+      Name: !Sub "OboLearn-UserPoolId-${Stage}"
+
+  UserPoolClientId:
+    Description: Cognito User Pool Client ID
+    Value: !Ref UserPoolClient
+    Export:
+      Name: !Sub "OboLearn-UserPoolClientId-${Stage}"
+
+  VideoBucketName:
+    Description: S3 bucket for video uploads
+    Value: !Ref VideoBucket
+    Export:
+      Name: !Sub "OboLearn-VideoBucket-${Stage}"
+
+  CloudFrontDomain:
+    Description: CloudFront distribution domain
+    Value: !GetAtt CloudFrontDistribution.DomainName
+    Export:
+      Name: !Sub "OboLearn-CloudFrontDomain-${Stage}"
+
+  TableName:
+    Description: DynamoDB table name
+    Value: !Ref OboLearnTable
+    Export:
+      Name: !Sub "OboLearn-TableName-${Stage}"
