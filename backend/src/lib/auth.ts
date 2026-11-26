@@ -5,21 +5,21 @@
  * under event.requestContext.authorizer.jwt.claims
  */
 
-import { APIGatewayProxyEventV2WithJWTAuthorizer } from 'aws-lambda';
+import { APIGatewayProxyEventV2WithJWTAuthorizer } from "aws-lambda";
 
 export interface CognitoClaims {
-  sub: string;       // userId
+  sub: string; // userId
   email: string;
-  'cognito:groups'?: string;
+  "cognito:groups"?: string;
 }
 
 /** Extract the userId (sub) from the JWT claims. Throws if missing. */
 export function getUserId(
   event: APIGatewayProxyEventV2WithJWTAuthorizer,
 ): string {
-  const sub = event.requestContext.authorizer.jwt.claims['sub'];
-  if (!sub || typeof sub !== 'string') {
-    throw new Error('Missing sub claim in JWT');
+  const sub = event.requestContext.authorizer.jwt.claims["sub"];
+  if (!sub || typeof sub !== "string") {
+    throw new Error("Missing sub claim in JWT");
   }
   return sub;
 }
@@ -28,8 +28,8 @@ export function getUserId(
 export function getEmail(
   event: APIGatewayProxyEventV2WithJWTAuthorizer,
 ): string {
-  const email = event.requestContext.authorizer.jwt.claims['email'];
-  return typeof email === 'string' ? email : '';
+  const email = event.requestContext.authorizer.jwt.claims["email"];
+  return typeof email === "string" ? email : "";
 }
 
 /** Check whether the JWT contains the given Cognito group. */
@@ -38,12 +38,15 @@ export function hasGroup(
   group: string,
 ): boolean {
   const groups =
-    event.requestContext.authorizer.jwt.claims['cognito:groups'];
+    event.requestContext?.authorizer?.jwt?.claims["cognito:groups"] ?? null;
   if (!groups) return false;
   // Cognito encodes groups as a space-separated string in JWT claims
   const list = Array.isArray(groups)
     ? (groups as string[])
-    : (groups as string).replace(/^\[|\]$/g, '').split(',').map((g) => g.trim());
+    : (groups as string)
+        .replace(/^\[|\]$/g, "")
+        .split(",")
+        .map((g) => g.trim());
   return list.includes(group);
 }
 
@@ -51,5 +54,5 @@ export function hasGroup(
 export function requireAdmin(
   event: APIGatewayProxyEventV2WithJWTAuthorizer,
 ): boolean {
-  return hasGroup(event, 'admin');
+  return hasGroup(event, "admin");
 }
