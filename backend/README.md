@@ -170,6 +170,7 @@ Create Admin User
 ```bash
 
 POOL_ID=<UserPoolId from outputs>
+CLIENT_ID=<ClientId from outputs>
 
 aws cognito-idp admin-create-user \
   --user-pool-id $POOL_ID \
@@ -181,4 +182,18 @@ aws cognito-idp admin-add-user-to-group \
   --user-pool-id $POOL_ID \
   --username you@example.com \
   --group-name admin
+
+# 1. First login returns a challenge and a Session value, not tokens
+aws cognito-idp initiate-auth \
+  --auth-flow USER_PASSWORD_AUTH \
+  --client-id $CLIENT_ID \
+  --auth-parameters USERNAME=you@example.com,PASSWORD='TempPass123'
+
+# 2. Answer the challenge with a new password (paste the Session from step 1)
+aws cognito-idp respond-to-auth-challenge \
+  --client-id $CLIENT_ID \
+  --challenge-name NEW_PASSWORD_REQUIRED \
+  --session "<Session from step 1>" \
+  --challenge-responses USERNAME=you@example.com,NEW_PASSWORD='YourPassword1'
+
 ```

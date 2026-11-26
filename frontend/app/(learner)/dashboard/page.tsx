@@ -51,7 +51,7 @@ async function DashboardContent() {
 }
 
 async function EnrolledCourses() {
-  "use cache";
+  // "use cache";
   const token = await getTokenFromCookie();
   if (!token) return null;
 
