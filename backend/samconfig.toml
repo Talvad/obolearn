@@ -4,6 +4,7 @@ version = 0.1
 
 [default.global.parameters]
 stack_name = "obolearn-backend"
+region = "ap-south-1"
 
 [default.build.parameters]
 cached = true
@@ -16,6 +17,10 @@ lint = false
 capabilities = "CAPABILITY_IAM"
 confirm_changeset = true
 resolve_s3 = true
+s3_prefix = "obolearn-backend"
+region = "ap-south-1"
+parameter_overrides = "Stage=\"dev\" FrontendDomain=\"obolearn.vercel.app\" CloudFrontKeyPairId=\"KPMLDYDRWSSKS\""
+image_repositories = []
 
 [default.package.parameters]
 resolve_s3 = true

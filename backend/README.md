@@ -129,10 +129,56 @@ Next, you can use AWS Serverless Application Repository to deploy ready to use A
 
 ## deployment
 
+Create the CloudFront signing key
+
 ```bash
+STAGE=dev
 openssl genrsa -out private_key.pem 2048
 openssl rsa -pubout -in private_key.pem -out public_key.pem
-
+# alternative for the below is provided with python
 aws cloudfront create-public-key --public-key-config \
   "CallerReference=obolearn-$STAGE-$(date +%s),Name=obolearn-$STAGE,EncodedKey=$(awk '{printf "%s\\n", $0}' public_key.pem)"
+```
+
+```bash
+
+python3 - <<EOF > public-key-config.json
+import json
+print(json.dumps({
+  "CallerReference": "obolearn-$STAGE-$(date +%s)",
+  "Name": "obolearn-$STAGE",
+  "EncodedKey": open("public_key.pem").read()
+}))
+EOF
+
+
+aws cloudfront create-public-key --public-key-config file://public-key-config.json
+
+```
+
+Store the private key in SSM
+
+```bash
+aws ssm put-parameter \
+  --name "/obolearn/$STAGE/cloudfront/private-key" \
+  --type SecureString \
+  --value file://private_key.pem
+```
+
+Create Admin User
+
+```bash
+
+POOL_ID=<UserPoolId from outputs>
+
+aws cognito-idp admin-create-user \
+  --user-pool-id $POOL_ID \
+  --username you@example.com \
+  --user-attributes Name=email,Value=you@example.com Name=email_verified,Value=true \
+  --temporary-password 'TempPass123'
+
+aws cognito-idp admin-add-user-to-group \
+  --user-pool-id $POOL_ID \
+  --username you@example.com \
+  --group-name admin
 ```
