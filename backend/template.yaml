@@ -11,11 +11,11 @@ Globals:
       - arm64
     Environment:
       Variables:
-        TABLE_NAME: !Ref OboLearnTable
-        BUCKET_NAME: !Ref VideoBucket
-        CLOUDFRONT_DOMAIN: !GetAtt CloudFrontDistribution.DomainName
-        CLOUDFRONT_KEY_PAIR_ID: !Ref CloudFrontKeyPairId
-        CLOUDFRONT_PRIVATE_KEY_SSM_PATH: !Sub "/obolearn/${Stage}/cloudfront/private-key"
+        # TABLE_NAME: !Ref OboLearnTable
+        # BUCKET_NAME: !Ref VideoBucket
+        # CLOUDFRONT_DOMAIN: !GetAtt CloudFrontDistribution.DomainName
+        # CLOUDFRONT_KEY_PAIR_ID: !Ref CloudFrontKeyPairId
+        # CLOUDFRONT_PRIVATE_KEY_SSM_PATH: !Sub "/obolearn/${Stage}/cloudfront/private-key"
         CORS_ORIGIN: !Sub "https://${FrontendDomain}"
 
 Parameters:
@@ -266,6 +266,9 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref OboLearnTable
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref OboLearnTable
 
   # CoursesFunctions
   CoursesFunctions:
@@ -467,10 +470,10 @@ Resources:
         Target: "es2022"
         Sourcemap: false
         EntryPoints:
-          - src/functions/video/handler.ts
+          - src/functions/video.ts
     Properties:
       FunctionName: !Sub "obolearn-get-video-signed-url-${Stage}"
-      Handler: handler.getVideoSignedUrl
+      Handler: video.handler
       Policies:
         - DynamoDBReadPolicy:
             TableName: !Ref OboLearnTable
@@ -478,9 +481,14 @@ Resources:
             ParameterName: !Sub "obolearn/${Stage}/cloudfront/private-key"
       Environment:
         Variables:
-          COGNITO_USER_POOL_ID: !Ref UserPool
+          TABLE_NAME: !Ref OboLearnTable
+          BUCKET_NAME: !Ref VideoBucket
+          CLOUDFRONT_DOMAIN: !GetAtt CloudFrontDistribution.DomainName
+          CLOUDFRONT_KEY_PAIR_ID: !Ref CloudFrontKeyPairId
+          CLOUDFRONT_PRIVATE_KEY_SSM_PATH: !Sub "/obolearn/${Stage}/cloudfront/private-key"
+          CORS_ORIGIN: !Sub "https://${FrontendDomain}"
       Events:
-        Api:
+        GetVideoSignedUrl:
           Type: HttpApi
           Properties:
             ApiId: !Ref OboLearnApi
