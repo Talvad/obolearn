@@ -41,8 +41,8 @@ async function LessonContent({ params }: PageProps) {
   if (!enrollment) redirect(`/courses/${courseId}`);
 
   const [course, lessons, progressData] = await Promise.all([
-    getCourse(courseId, { revalidate: 0 }),
-    listLessons(courseId, { revalidate: 0 }),
+    getCourse(courseId, { revalidate: 0, token }),
+    listLessons(courseId, { revalidate: 0, token }),
     getCourseProgress(courseId, token).catch(() => null),
   ]);
 

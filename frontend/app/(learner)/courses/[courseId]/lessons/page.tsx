@@ -34,9 +34,10 @@ async function LessonsRedirect({
   if (!token) redirect(`/auth/login?redirect=/courses/${courseId}/lessons`);
 
   const [lessons, progress] = await Promise.all([
-    listLessons(courseId, { revalidate: 0 }),
+    listLessons(courseId, { revalidate: 0, token }),
     getCourseProgress(courseId, token!).catch(() => null),
   ]);
+  console.log("LESSONS", lessons);
 
   if (lessons.length === 0) {
     redirect(`/courses/${courseId}`);
