@@ -423,8 +423,8 @@ Resources:
             Path: /enrollments/{courseId}
             Method: GET
 
-    # Progress
-  UpdateProgressFunction:
+  # ProgressFunctions
+  ProgressFunctions:
     Type: AWS::Serverless::Function
     Metadata:
       BuildMethod: esbuild
@@ -433,45 +433,24 @@ Resources:
         Target: "es2022"
         Sourcemap: false
         EntryPoints:
-          - src/functions/progress/handler.ts
+          - src/functions/progress.ts
     Properties:
-      FunctionName: !Sub "obolearn-update-progress-${Stage}"
-      Handler: handler.updateProgress
+      FunctionName: !Sub "obolearn-progress-${Stage}"
+      Handler: progress.handler
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref OboLearnTable
       Environment:
         Variables:
-          COGNITO_USER_POOL_ID: !Ref UserPool
+          TABLE_NAME: !Ref OboLearnTable
       Events:
-        Api:
+        UpdateProgress:
           Type: HttpApi
           Properties:
             ApiId: !Ref OboLearnApi
             Path: /progress/{courseId}/{lessonId}
             Method: PUT
-
-  GetProgressFunction:
-    Type: AWS::Serverless::Function
-    Metadata:
-      BuildMethod: esbuild
-      BuildProperties:
-        Minify: false
-        Target: "es2022"
-        Sourcemap: false
-        EntryPoints:
-          - src/functions/progress/handler.ts
-    Properties:
-      FunctionName: !Sub "obolearn-get-progress-${Stage}"
-      Handler: handler.getCourseProgress
-      Policies:
-        - DynamoDBReadPolicy:
-            TableName: !Ref OboLearnTable
-      Environment:
-        Variables:
-          COGNITO_USER_POOL_ID: !Ref UserPool
-      Events:
-        Api:
+        GetProgress:
           Type: HttpApi
           Properties:
             ApiId: !Ref OboLearnApi
