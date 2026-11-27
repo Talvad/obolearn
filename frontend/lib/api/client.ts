@@ -72,6 +72,17 @@ export async function listCourses(opts?: FetchOptions): Promise<Course[]> {
   return apiFetch<Course[]>("/courses", {}, { tags: ["courses"], ...opts });
 }
 
+export async function listPublicCourses(
+  opts?: FetchOptions,
+): Promise<Course[]> {
+  if (!API_URL) return [];
+  return apiFetch<Course[]>(
+    "/public/courses",
+    {},
+    { tags: ["public-courses"], ...opts },
+  );
+}
+
 export async function getCourse(
   courseId: string,
   opts?: FetchOptions,
@@ -81,6 +92,20 @@ export async function getCourse(
     {},
     {
       tags: [`course-${courseId}`],
+      ...opts,
+    },
+  );
+}
+
+export async function getPublicCourse(
+  courseId: string,
+  opts?: FetchOptions,
+): Promise<Course> {
+  return apiFetch<Course>(
+    `/public/courses/${courseId}`,
+    {},
+    {
+      tags: [`public-course-${courseId}`],
       ...opts,
     },
   );
@@ -128,6 +153,20 @@ export async function listLessons(
     {},
     {
       tags: [`course-${courseId}-lessons`],
+      ...opts,
+    },
+  );
+}
+
+export async function listPublicLessons(
+  courseId: string,
+  opts?: FetchOptions,
+): Promise<Lesson[]> {
+  return apiFetch<Lesson[]>(
+    `/public/courses/${courseId}/lessons`,
+    {},
+    {
+      tags: [`public-course-${courseId}-lessons`],
       ...opts,
     },
   );

@@ -9,11 +9,16 @@
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { getCourse, listLessons, getEnrollment } from "@/lib/api/client";
+import {
+  getEnrollment,
+  getPublicCourse,
+  listPublicLessons,
+} from "@/lib/api/client";
 import { getTokenFromCookie } from "@/lib/auth/session";
 import { EnrollButton } from "@/components/course/EnrollButton";
 import { Badge } from "@/components/ui/Badge";
 import { Course, Lesson } from "@/types";
+import { connection } from "next/server";
 
 interface PageProps {
   params: Promise<{ courseId: string }>;
@@ -30,15 +35,18 @@ export default function CourseDetailPage({ params }: PageProps) {
 async function fetchCourseAndLessons(
   courseId: string,
 ): Promise<{ course: Course; lessons: Lesson[] }> {
-  "use cache";
+  // "use cache";
   const [course, lessons] = await Promise.all([
-    getCourse(courseId, { tags: [`course-${courseId}`] }),
-    listLessons(courseId, { tags: [`course-${courseId}-lessons`] }),
+    getPublicCourse(courseId, { tags: [`public-course-${courseId}`] }),
+    listPublicLessons(courseId, {
+      tags: [`public-course-${courseId}-lessons`],
+    }),
   ]);
   return { course, lessons };
 }
 
 async function CourseDetailContent({ params }: PageProps) {
+  // await connection();
   const { courseId } = await params; // dynamic — safe inside Suspense
 
   let data: { course: Course; lessons: Lesson[] };

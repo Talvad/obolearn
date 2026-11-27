@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { listCourses } from "@/lib/api/client";
+import { listPublicCourses } from "@/lib/api/client";
 import { CourseCard } from "@/components/course/CourseCard";
 import { Header } from "@/components/ui/Header";
 
@@ -18,7 +18,7 @@ function HeaderFallback() {
 
 async function getFeaturedCourses() {
   "use cache";
-  const courses = await listCourses({ tags: ["courses"] });
+  const courses = await listPublicCourses({ tags: ["public-courses"] });
   return courses.slice(0, 4);
 }
 
@@ -30,7 +30,7 @@ export default async function HomePage() {
       </Suspense>
       <main>
         {/* Hero */}
-        <section className="bg-gradient-to-br from-indigo-50 via-white to-purple-50 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 py-20 px-4">
+        <section className="bg-linear-to-br from-indigo-50 via-white to-purple-50 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 py-20 px-4">
           <div className="mx-auto max-w-4xl text-center space-y-6">
             <h1 className="text-5xl font-bold text-gray-900 dark:text-white leading-tight">
               Learn at your own pace.
