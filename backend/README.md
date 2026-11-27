@@ -163,6 +163,13 @@ aws ssm put-parameter \
   --name "/obolearn/$STAGE/cloudfront/private-key" \
   --type SecureString \
   --value file://private_key.pem
+
+
+ aws ssm put-parameter \
+  --name "/obolearn/dev/cloudfront/private-key" \
+  --type SecureString \
+  --value file://private_key.pem \
+  --region ap-south-1
 ```
 
 Create Admin User

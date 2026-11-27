@@ -46,7 +46,6 @@ async function apiFetch<T>(
 
   if (!res.ok) {
     const errorBody = await res.text();
-    console.log("Error", `${API_URL}${path}`, errorBody);
     throw new ApiError(res.status, errorBody);
   }
 

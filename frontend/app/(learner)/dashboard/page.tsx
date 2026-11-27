@@ -77,8 +77,8 @@ async function EnrolledCourses() {
   const courseData = await Promise.allSettled(
     enrollments.map(async (enrollment) => {
       const [course, lessons, progress] = await Promise.all([
-        getCourse(enrollment.courseId, { revalidate: 0 }),
-        listLessons(enrollment.courseId, { revalidate: 0 }),
+        getCourse(enrollment.courseId, { revalidate: 0, token }),
+        listLessons(enrollment.courseId, { revalidate: 0, token }),
         getCourseProgress(enrollment.courseId, token).catch(() => null),
       ]);
       return { course, lessons, progress };

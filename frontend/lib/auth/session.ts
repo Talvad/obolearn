@@ -60,6 +60,7 @@ export async function isAdmin(): Promise<boolean> {
 
 /** Get the raw id_token from the cookie (for use in API calls). */
 export async function getTokenFromCookie(): Promise<string | null> {
+  await connection();
   const cookieStore = await cookies();
   return cookieStore.get(TOKEN_COOKIE)?.value ?? null;
 }

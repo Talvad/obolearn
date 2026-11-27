@@ -37,7 +37,6 @@ async function LessonsRedirect({
     listLessons(courseId, { revalidate: 0, token }),
     getCourseProgress(courseId, token!).catch(() => null),
   ]);
-  console.log("LESSONS", lessons);
 
   if (lessons.length === 0) {
     redirect(`/courses/${courseId}`);
