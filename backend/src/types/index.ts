@@ -12,7 +12,12 @@
  *   Enrollment GSI1PK=COURSE#<courseId>          GSI1SK=ENROLL#<userId>
  */
 
-export type CourseStatus = 'draft' | 'published';
+import {
+  APIGatewayProxyEventV2WithJWTAuthorizer,
+  APIGatewayProxyResultV2,
+} from "aws-lambda";
+
+export type CourseStatus = "draft" | "published";
 
 export interface Course {
   courseId: string;
@@ -67,7 +72,12 @@ export interface User {
 }
 
 /** Discriminator stored on every item */
-export type EntityType = 'COURSE' | 'LESSON' | 'ENROLLMENT' | 'PROGRESS' | 'USER';
+export type EntityType =
+  | "COURSE"
+  | "LESSON"
+  | "ENROLLMENT"
+  | "PROGRESS"
+  | "USER";
 
 export interface BaseEntity {
   entityType: EntityType;
@@ -78,3 +88,8 @@ export type LessonItem = Lesson & BaseEntity;
 export type EnrollmentItem = Enrollment & BaseEntity;
 export type ProgressItem = Progress & BaseEntity;
 export type UserItem = User & BaseEntity;
+
+export type ApiEvent = APIGatewayProxyEventV2WithJWTAuthorizer;
+export type RouteHandler = (
+  event: ApiEvent,
+) => Promise<APIGatewayProxyResultV2>;

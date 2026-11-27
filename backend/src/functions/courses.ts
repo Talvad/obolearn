@@ -24,18 +24,13 @@ import {
   ok,
   notFound,
 } from "@lib/response";
-import { CourseItem } from "@types-local/index";
+import { ApiEvent, CourseItem, RouteHandler } from "@types-local/index";
 import {
   APIGatewayProxyEventV2WithJWTAuthorizer,
   APIGatewayProxyResultV2,
   Context,
 } from "aws-lambda";
 import { v4 as uuidv4 } from "uuid";
-
-export type ApiEvent = APIGatewayProxyEventV2WithJWTAuthorizer;
-export type RouteHandler = (
-  event: ApiEvent,
-) => Promise<APIGatewayProxyResultV2>;
 
 // POST /courses
 export const createCourse: RouteHandler = async (event) => {
@@ -93,7 +88,7 @@ export const listPublicCoursesHandler: RouteHandler = async (event) => {
   }
 };
 
-// GET /courses/{courseId}
+// GET /public/courses/{courseId}
 export const getPublicCourseHandler: RouteHandler = async (event) => {
   try {
     const courseId = event.pathParameters?.courseId;
@@ -211,7 +206,7 @@ const routes: Record<string, RouteHandler> = {
   "PUT /courses/{courseId}": updateCourse,
 };
 
-export const handler = async (event: ApiEvent, context: Context) => {
+export const handler = async (event: ApiEvent) => {
   try {
     const route = routes[event.routeKey];
     if (!route) return notFound();

@@ -326,8 +326,8 @@ Resources:
             Path: /courses/{courseId}
             Method: PUT
 
-  # Lessons
-  CreateLessonFunction:
+  # LessonFunctions
+  LessonFunctions:
     Type: AWS::Serverless::Function
     Metadata:
       BuildMethod: esbuild
@@ -336,10 +336,10 @@ Resources:
         Target: "es2022"
         Sourcemap: false
         EntryPoints:
-          - src/functions/lessons/handler.ts
+          - src/functions/lessons.ts
     Properties:
-      FunctionName: !Sub "obolearn-create-lesson-${Stage}"
-      Handler: handler.createLesson
+      FunctionName: !Sub "obolearn-lessons-${Stage}"
+      Handler: lessons.handler
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref OboLearnTable
@@ -347,100 +347,44 @@ Resources:
             BucketName: !Ref VideoBucket
       Environment:
         Variables:
-          COGNITO_USER_POOL_ID: !Ref UserPool
+          TABLE_NAME: !Ref OboLearnTable
+          BUCKET_NAME: !Ref VideoBucket
       Events:
-        Api:
+        CreateLesson:
           Type: HttpApi
           Properties:
             ApiId: !Ref OboLearnApi
             Path: /courses/{courseId}/lessons
             Method: POST
-
-  ListLessonsFunction:
-    Type: AWS::Serverless::Function
-    Metadata:
-      BuildMethod: esbuild
-      BuildProperties:
-        Minify: false
-        Target: "es2022"
-        Sourcemap: false
-        EntryPoints:
-          - src/functions/lessons/handler.ts
-    Properties:
-      FunctionName: !Sub "obolearn-list-lessons-${Stage}"
-      Handler: handler.listLessonsHandler
-      Policies:
-        - DynamoDBReadPolicy:
-            TableName: !Ref OboLearnTable
-      Environment:
-        Variables:
-          COGNITO_USER_POOL_ID: !Ref UserPool
-      Events:
-        Api:
+        ListPublicLessons:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref OboLearnApi
+            Path: /public/courses/{courseId}/lessons
+            Method: GET
+            Auth:
+              Authorizer: NONE
+        ListAdminLessons:
           Type: HttpApi
           Properties:
             ApiId: !Ref OboLearnApi
             Path: /courses/{courseId}/lessons
             Method: GET
-            Auth:
-              Authorizer: NONE
-
-  UpdateLessonFunction:
-    Type: AWS::Serverless::Function
-    Metadata:
-      BuildMethod: esbuild
-      BuildProperties:
-        Minify: false
-        Target: "es2022"
-        Sourcemap: false
-        EntryPoints:
-          - src/functions/lessons/handler.ts
-    Properties:
-      FunctionName: !Sub "obolearn-update-lesson-${Stage}"
-      Handler: handler.updateLesson
-      Policies:
-        - DynamoDBCrudPolicy:
-            TableName: !Ref OboLearnTable
-      Environment:
-        Variables:
-          COGNITO_USER_POOL_ID: !Ref UserPool
-      Events:
-        Api:
+        UpdateLesson:
           Type: HttpApi
           Properties:
             ApiId: !Ref OboLearnApi
             Path: /courses/{courseId}/lessons/{lessonId}
             Method: PUT
-
-  GetUploadUrlFunction:
-    Type: AWS::Serverless::Function
-    Metadata:
-      BuildMethod: esbuild
-      BuildProperties:
-        Minify: false
-        Target: "es2022"
-        Sourcemap: false
-        EntryPoints:
-          - src/functions/lessons/handler.ts
-    Properties:
-      FunctionName: !Sub "obolearn-get-upload-url-${Stage}"
-      Handler: handler.getUploadUrl
-      Policies:
-        - DynamoDBReadPolicy:
-            TableName: !Ref OboLearnTable
-        - S3WritePolicy:
-            BucketName: !Ref VideoBucket
-      Environment:
-        Variables:
-          COGNITO_USER_POOL_ID: !Ref UserPool
-      Events:
-        Api:
+        GetUploadUrl:
           Type: HttpApi
           Properties:
             ApiId: !Ref OboLearnApi
             Path: /courses/{courseId}/lessons/{lessonId}/upload-url
             Method: POST
 
+  # EnrollmentsFunctions
+  # EnrollmentFunctions
   # Enrollments
   EnrollFunction:
     Type: AWS::Serverless::Function
