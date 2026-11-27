@@ -287,6 +287,9 @@ Resources:
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref OboLearnTable
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref OboLearnTable
       Events:
         ListPublicCourses:
           Type: HttpApi
