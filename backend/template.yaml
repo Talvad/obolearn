@@ -384,9 +384,7 @@ Resources:
             Method: POST
 
   # EnrollmentsFunctions
-  # EnrollmentFunctions
-  # Enrollments
-  EnrollFunction:
+  EnrollmentFunctions:
     Type: AWS::Serverless::Function
     Metadata:
       BuildMethod: esbuild
@@ -395,79 +393,37 @@ Resources:
         Target: "es2022"
         Sourcemap: false
         EntryPoints:
-          - src/functions/enrollments/handler.ts
+          - src/functions/enrollments.ts
     Properties:
-      FunctionName: !Sub "obolearn-enroll-${Stage}"
-      Handler: handler.enroll
+      FunctionName: !Sub "obolearn-enrollments-${Stage}"
+      Handler: enrollments.handler
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref OboLearnTable
       Environment:
         Variables:
-          COGNITO_USER_POOL_ID: !Ref UserPool
+          TABLE_NAME: !Ref OboLearnTable
       Events:
-        Api:
+        CreateEnrollment:
           Type: HttpApi
           Properties:
             ApiId: !Ref OboLearnApi
             Path: /enrollments
             Method: POST
-
-  ListEnrollmentsFunction:
-    Type: AWS::Serverless::Function
-    Metadata:
-      BuildMethod: esbuild
-      BuildProperties:
-        Minify: false
-        Target: "es2022"
-        Sourcemap: false
-        EntryPoints:
-          - src/functions/enrollments/handler.ts
-    Properties:
-      FunctionName: !Sub "obolearn-list-enrollments-${Stage}"
-      Handler: handler.listEnrollments
-      Policies:
-        - DynamoDBReadPolicy:
-            TableName: !Ref OboLearnTable
-      Environment:
-        Variables:
-          COGNITO_USER_POOL_ID: !Ref UserPool
-      Events:
-        Api:
+        ListEnrollments:
           Type: HttpApi
           Properties:
             ApiId: !Ref OboLearnApi
             Path: /enrollments
             Method: GET
-
-  GetEnrollmentFunction:
-    Type: AWS::Serverless::Function
-    Metadata:
-      BuildMethod: esbuild
-      BuildProperties:
-        Minify: false
-        Target: "es2022"
-        Sourcemap: false
-        EntryPoints:
-          - src/functions/enrollments/handler.ts
-    Properties:
-      FunctionName: !Sub "obolearn-get-enrollment-${Stage}"
-      Handler: handler.getEnrollmentHandler
-      Policies:
-        - DynamoDBReadPolicy:
-            TableName: !Ref OboLearnTable
-      Environment:
-        Variables:
-          COGNITO_USER_POOL_ID: !Ref UserPool
-      Events:
-        Api:
+        GetEnrollments:
           Type: HttpApi
           Properties:
             ApiId: !Ref OboLearnApi
             Path: /enrollments/{courseId}
             Method: GET
 
-  # Progress
+    # Progress
   UpdateProgressFunction:
     Type: AWS::Serverless::Function
     Metadata:
